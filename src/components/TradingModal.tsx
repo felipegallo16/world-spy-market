@@ -1,12 +1,13 @@
+
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { IndexToken } from '@/types/tokens'
-import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from '@worldcoin/minikit-js'
 import { useToast } from '@/hooks/use-toast'
 import { useWorldVerification } from '@/hooks/useWorldVerification'
+import { executeTrade } from '@/services/tradingService'
 import { Sparkles, TrendingUp, Heart, Gift, Info, DollarSign, Coins, Shield } from 'lucide-react'
 
 interface TradingModalProps {
@@ -43,7 +44,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
 
   const handleTrade = async () => {
     // Extra security check
-    if (!isVerified) {
+    if (!isVerified || !nullifierHash) {
       toast({
         title: "Verificación requerida 🔒",
         description: "Necesitas verificarte con World ID para realizar transacciones",
@@ -64,45 +65,34 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
     setIsProcessing(true)
 
     try {
-      const paymentAmount = calculatePaymentAmount()
+      const result = await executeTrade({
+        tokenSymbol: token.symbol,
+        quantity: parseFloat(amount),
+        tradeType: type,
+        paymentCurrency: paymentToken,
+        worldIdNullifier: nullifierHash
+      })
 
       if (type === 'buy') {
-        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDC
-        
-        const payload: PayCommandInput = {
-          reference: `trade-${Date.now()}-${nullifierHash?.slice(0, 8)}`, // Include user verification in reference
-          to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-          tokens: [
-            {
-              symbol: selectedToken,
-              token_amount: tokenToDecimals(paymentAmount, selectedToken).toString(),
-            },
-          ],
-          description: `🎉 Comprar ${amount} tokens ${token.symbol} con ${paymentToken} (Usuario verificado)`,
-        }
-
-        if (MiniKit.isInstalled()) {
-          const { finalPayload } = await MiniKit.commandsAsync.pay(payload)
-          
-          if (finalPayload.status === 'success') {
-            toast({
-              title: "¡Felicidades! 🎉",
-              description: `¡Acabas de comprar ${amount} tokens ${token.symbol} con ${paymentToken}! Tu viaje de inversión ha comenzado 🚀`,
-            })
-            onClose()
-          }
-        }
+        toast({
+          title: "¡Felicidades! 🎉",
+          description: `¡Acabas de comprar ${amount} tokens ${token.symbol} con ${paymentToken}! Tu viaje de inversión ha comenzado 🚀`,
+        })
       } else {
         toast({
           title: "¡Venta exitosa! 💰",
           description: `Has vendido ${amount} tokens ${token.symbol}. ¡Bien hecho!`,
         })
-        onClose()
       }
+      
+      onClose()
+      
+      // Refresh the page to update balances
+      window.location.reload()
     } catch (error) {
       toast({
         title: "Ups, algo salió mal 😔",
-        description: "No te preocupes, inténtalo de nuevo en un momento",
+        description: error instanceof Error ? error.message : "Inténtalo de nuevo en un momento",
         variant: "destructive"
       })
     } finally {

@@ -2,15 +2,23 @@
 import { useState } from 'react'
 import { TokenCard } from '@/components/TokenCard'
 import { TradingModal } from '@/components/TradingModal'
-import { indexTokens } from '@/data/mockTokens'
 import { IndexToken } from '@/types/tokens'
 import { Button } from '@/components/ui/button'
-import { Sparkles, TrendingUp, Heart, BookOpen, DollarSign, Globe } from 'lucide-react'
+import { Sparkles, TrendingUp, Heart, BookOpen, DollarSign, Globe, RefreshCw } from 'lucide-react'
+import { useTokens } from '@/hooks/useTokens'
+import { useUserAccount } from '@/hooks/useUserAccount'
+import { usePortfolio } from '@/hooks/usePortfolio'
+import { useToast } from '@/hooks/use-toast'
 
 const Index = () => {
   const [selectedToken, setSelectedToken] = useState<IndexToken | null>(null)
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  
+  const { tokens, isLoading: tokensLoading, updatePrices } = useTokens()
+  const { account, isLoading: accountLoading } = useUserAccount()
+  const { portfolio, isLoading: portfolioLoading } = usePortfolio()
+  const { toast } = useToast()
 
   const handleBuy = (token: IndexToken) => {
     setSelectedToken(token)
@@ -29,20 +37,70 @@ const Index = () => {
     setSelectedToken(null)
   }
 
+  const handleUpdatePrices = async () => {
+    try {
+      await updatePrices()
+      toast({
+        title: "¡Precios actualizados! 📈",
+        description: "Los precios se han actualizado con datos del mercado real",
+      })
+    } catch (error) {
+      toast({
+        title: "Error al actualizar precios",
+        description: "No se pudieron actualizar los precios en este momento",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Calculate portfolio totals
+  const portfolioValue = portfolio.reduce((total, position) => {
+    const currentPrice = position.token_prices?.[0]?.price_usd || 0
+    return total + (position.quantity * currentPrice)
+  }, 0)
+
+  const portfolioPnL = portfolio.reduce((total, position) => {
+    const currentPrice = position.token_prices?.[0]?.price_usd || 0
+    const currentValue = position.quantity * currentPrice
+    return total + (currentValue - position.total_invested)
+  }, 0)
+
+  if (tokensLoading || accountLoading || portfolioLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <Sparkles className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-lg font-semibold text-gray-700">Cargando tu plataforma de inversión...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {/* Header con gradiente cálido */}
       <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 text-white p-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="bg-white/20 p-2 rounded-full">
-              <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-full">
+                <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold">✨ Ahorro Inteligente</h1>
+                <p className="text-sm opacity-90 font-medium">Tu primer paso hacia la libertad financiera</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">✨ Ahorro Inteligente</h1>
-              <p className="text-sm opacity-90 font-medium">Tu primer paso hacia la libertad financiera</p>
-            </div>
+            <Button
+              onClick={handleUpdatePrices}
+              variant="outline"
+              size="sm"
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Actualizar
+            </Button>
           </div>
           
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
@@ -78,7 +136,7 @@ const Index = () => {
         </div>
       </div>
 
-      {/* Portfolio Summary con diseño más cálido */}
+      {/* Portfolio Summary con datos reales */}
       <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-b-2 border-orange-100">
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-yellow-200 transform hover:scale-105 transition-all duration-200">
@@ -86,21 +144,27 @@ const Index = () => {
               <TrendingUp className="w-5 h-5 text-blue-600" />
               <p className="text-sm text-gray-600 font-medium">Mi Portafolio</p>
             </div>
-            <p className="text-2xl font-bold text-gray-800">$0.00</p>
-            <p className="text-xs text-gray-500">¡Empieza tu viaje!</p>
+            <p className="text-2xl font-bold text-gray-800">${portfolioValue.toFixed(2)}</p>
+            <p className="text-xs text-gray-500">
+              Balance: ${account?.wld_balance?.toFixed(2) || '0.00'} WLD + ${account?.usdc_balance?.toFixed(2) || '0.00'} USDC
+            </p>
           </div>
           <div className="text-center bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-green-200 transform hover:scale-105 transition-all duration-200">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Sparkles className="w-5 h-5 text-green-600 animate-pulse" />
-              <p className="text-sm text-gray-600 font-medium">Ganancia Hoy</p>
+              <p className="text-sm text-gray-600 font-medium">Ganancia Total</p>
             </div>
-            <p className="text-2xl font-bold text-green-600">+$0.00</p>
-            <p className="text-xs text-gray-500">Tu futuro te espera</p>
+            <p className={`text-2xl font-bold ${portfolioPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {portfolioPnL >= 0 ? '+' : ''}${portfolioPnL.toFixed(2)}
+            </p>
+            <p className="text-xs text-gray-500">
+              {portfolioPnL >= 0 ? '¡Vas muy bien!' : 'Sigue invirtiendo'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Tokens Grid con animaciones */}
+      {/* Tokens Grid con datos reales */}
       <div className="p-4 space-y-6 pb-24">
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
@@ -111,14 +175,24 @@ const Index = () => {
         </div>
         
         <div className="grid gap-4">
-          {indexTokens.map((token, index) => (
+          {tokens.map((token, index) => (
             <div 
               key={token.id}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <TokenCard
-                token={token}
+                token={{
+                  id: token.id,
+                  name: token.name,
+                  symbol: token.symbol,
+                  currentPrice: token.token_prices?.[0]?.price_usd || 0,
+                  change24h: token.token_prices?.[0]?.change_24h || 0,
+                  changePercent24h: token.token_prices?.[0]?.change_percent_24h || 0,
+                  marketCap: token.token_prices?.[0]?.market_cap || 0,
+                  description: token.description || '',
+                  indexType: token.index_type
+                }}
                 onBuy={handleBuy}
                 onSell={handleSell}
               />
@@ -131,7 +205,17 @@ const Index = () => {
       <TradingModal
         isOpen={isModalOpen}
         onClose={closeModal}
-        token={selectedToken}
+        token={selectedToken ? {
+          id: selectedToken.id,
+          name: selectedToken.name,
+          symbol: selectedToken.symbol,
+          currentPrice: selectedToken.token_prices?.[0]?.price_usd || 0,
+          change24h: selectedToken.token_prices?.[0]?.change_24h || 0,
+          changePercent24h: selectedToken.token_prices?.[0]?.change_percent_24h || 0,
+          marketCap: selectedToken.token_prices?.[0]?.market_cap || 0,
+          description: selectedToken.description || '',
+          indexType: selectedToken.index_type
+        } : null}
         type={tradeType}
       />
 
