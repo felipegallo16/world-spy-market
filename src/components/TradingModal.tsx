@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { IndexToken } from '@/types/tokens'
+import { DisplayToken } from '@/types/tokens'
 import { useToast } from '@/hooks/use-toast'
 import { useWorldVerification } from '@/hooks/useWorldVerification'
 import { executeTrade } from '@/services/tradingService'
@@ -13,7 +13,7 @@ import { Sparkles, TrendingUp, Heart, Gift, Info, DollarSign, Coins, Shield } fr
 interface TradingModalProps {
   isOpen: boolean
   onClose: () => void
-  token: IndexToken | null
+  token: DisplayToken | null
   type: 'buy' | 'sell'
 }
 

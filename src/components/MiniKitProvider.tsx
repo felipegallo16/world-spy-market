@@ -10,8 +10,8 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   const { isVerified } = useWorldVerification()
 
   useEffect(() => {
-    // Install MiniKit for World App integration
-    MiniKit.install()
+    // Install MiniKit for World App integration with the provided app_id
+    MiniKit.install('app_45ecc6de80e49604d8cdb05211e9df82')
   }, [])
 
   // Show verification screen if user is not verified

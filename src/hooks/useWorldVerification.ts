@@ -46,7 +46,7 @@ export const useWorldVerification = () => {
 
     try {
       const { finalPayload } = await MiniKit.commandsAsync.verify({
-        action: 'access_trading_app',
+        action: 'trust-save',
         verification_level: VerificationLevel.Orb
       })
 

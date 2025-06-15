@@ -4,9 +4,7 @@ export interface IndexToken {
   symbol: string
   name: string
   description: string
-  index_type: 'SP500' | 'NASDAQ' | 'DOW' | 'FTSE' | 'NIKKEI' | 'DAX'
-  is_active: boolean
-  created_at: string
+  index_type: string
   token_prices?: TokenPrice[]
 }
 
@@ -17,7 +15,7 @@ export interface TokenPrice {
   change_24h: number
   change_percent_24h: number
   market_cap: number
-  volume_24h: number
+  volume_24h?: number
   updated_at: string
 }
 
@@ -63,15 +61,19 @@ export interface Transaction {
   blockchain_tx_hash?: string
   created_at: string
   completed_at?: string
-  metadata: Record<string, any>
+  metadata?: any
   index_tokens?: IndexToken
 }
 
-export interface CommissionEarning {
+// Display types for components
+export interface DisplayToken {
   id: string
-  transaction_id: string
-  commission_amount: number
-  commission_currency: string
-  commission_rate: number
-  earned_at: string
+  name: string
+  symbol: string
+  currentPrice: number
+  change24h: number
+  changePercent24h: number
+  marketCap: number
+  description: string
+  indexType: string
 }

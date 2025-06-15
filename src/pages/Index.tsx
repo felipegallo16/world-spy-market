@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { TokenCard } from '@/components/TokenCard'
 import { TradingModal } from '@/components/TradingModal'
-import { IndexToken } from '@/types/tokens'
+import { DisplayToken } from '@/types/tokens'
 import { Button } from '@/components/ui/button'
 import { Sparkles, TrendingUp, Heart, BookOpen, DollarSign, Globe, RefreshCw } from 'lucide-react'
 import { useTokens } from '@/hooks/useTokens'
@@ -11,7 +11,7 @@ import { usePortfolio } from '@/hooks/usePortfolio'
 import { useToast } from '@/hooks/use-toast'
 
 const Index = () => {
-  const [selectedToken, setSelectedToken] = useState<IndexToken | null>(null)
+  const [selectedToken, setSelectedToken] = useState<DisplayToken | null>(null)
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy')
   const [isModalOpen, setIsModalOpen] = useState(false)
   
@@ -20,13 +20,13 @@ const Index = () => {
   const { portfolio, isLoading: portfolioLoading } = usePortfolio()
   const { toast } = useToast()
 
-  const handleBuy = (token: IndexToken) => {
+  const handleBuy = (token: DisplayToken) => {
     setSelectedToken(token)
     setTradeType('buy')
     setIsModalOpen(true)
   }
 
-  const handleSell = (token: IndexToken) => {
+  const handleSell = (token: DisplayToken) => {
     setSelectedToken(token)
     setTradeType('sell')
     setIsModalOpen(true)
@@ -75,6 +75,19 @@ const Index = () => {
       </div>
     )
   }
+
+  // Convert IndexToken to DisplayToken for components
+  const displayTokens: DisplayToken[] = tokens.map(token => ({
+    id: token.id,
+    name: token.name,
+    symbol: token.symbol,
+    currentPrice: token.token_prices?.[0]?.price_usd || 0,
+    change24h: token.token_prices?.[0]?.change_24h || 0,
+    changePercent24h: token.token_prices?.[0]?.change_percent_24h || 0,
+    marketCap: token.token_prices?.[0]?.market_cap || 0,
+    description: token.description || '',
+    indexType: token.index_type
+  }))
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -175,24 +188,14 @@ const Index = () => {
         </div>
         
         <div className="grid gap-4">
-          {tokens.map((token, index) => (
+          {displayTokens.map((token, index) => (
             <div 
               key={token.id}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 100}ms` }}
             >
               <TokenCard
-                token={{
-                  id: token.id,
-                  name: token.name,
-                  symbol: token.symbol,
-                  currentPrice: token.token_prices?.[0]?.price_usd || 0,
-                  change24h: token.token_prices?.[0]?.change_24h || 0,
-                  changePercent24h: token.token_prices?.[0]?.change_percent_24h || 0,
-                  marketCap: token.token_prices?.[0]?.market_cap || 0,
-                  description: token.description || '',
-                  indexType: token.index_type
-                }}
+                token={token}
                 onBuy={handleBuy}
                 onSell={handleSell}
               />
@@ -205,17 +208,7 @@ const Index = () => {
       <TradingModal
         isOpen={isModalOpen}
         onClose={closeModal}
-        token={selectedToken ? {
-          id: selectedToken.id,
-          name: selectedToken.name,
-          symbol: selectedToken.symbol,
-          currentPrice: selectedToken.token_prices?.[0]?.price_usd || 0,
-          change24h: selectedToken.token_prices?.[0]?.change_24h || 0,
-          changePercent24h: selectedToken.token_prices?.[0]?.change_percent_24h || 0,
-          marketCap: selectedToken.token_prices?.[0]?.market_cap || 0,
-          description: selectedToken.description || '',
-          indexType: selectedToken.index_type
-        } : null}
+        token={selectedToken}
         type={tradeType}
       />
 
