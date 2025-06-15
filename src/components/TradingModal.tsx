@@ -44,8 +44,8 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
           to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', // Replace with your contract address
           tokens: [
             {
-              symbol: Tokens.USDCE,
-              token_amount: tokenToDecimals(totalValue, Tokens.USDCE).toString(),
+              symbol: Tokens.USDC,
+              token_amount: tokenToDecimals(totalValue, Tokens.USDC).toString(),
             },
           ],
           description: `Buy ${amount} ${token.symbol} tokens`,
