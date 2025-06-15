@@ -10,7 +10,7 @@ import { DisplayToken } from '@/types/tokens'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Wallet, TrendingUp, DollarSign, Activity, RefreshCw, Sparkles } from 'lucide-react'
+import { Wallet, TrendingUp, DollarSign, Activity, RefreshCw, Sparkles, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
@@ -20,7 +20,7 @@ const Index = () => {
   const [isModalOpen, setIsModalOpen] = useState(false)
   
   const { tokens, isLoading: tokensLoading, refetch: refetchTokens, updatePrices } = useTokens()
-  const { account, isLoading: accountLoading } = useUserAccount()
+  const { account, isLoading: accountLoading, error: accountError } = useUserAccount()
   const { portfolio, isLoading: portfolioLoading } = usePortfolio()
   const { transactions, isLoading: transactionsLoading } = useTransactions()
   const { toast } = useToast()
@@ -73,7 +73,8 @@ const Index = () => {
 
   const totalBalance = (account?.wld_balance || 0) * 2.45 + (account?.usdc_balance || 0) // Assuming 1 WLD = $2.45
 
-  if (tokensLoading || accountLoading) {
+  // Show loading only for tokens, not for account
+  if (tokensLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -111,6 +112,35 @@ const Index = () => {
           </div>
         </div>
 
+        {/* Account Status Alert */}
+        {accountLoading && (
+          <div className="mb-6">
+            <Card className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-200">
+              <div className="flex items-center gap-3">
+                <Activity className="w-5 h-5 text-yellow-600 animate-spin" />
+                <div>
+                  <p className="font-semibold text-yellow-800">Configurando tu cuenta...</p>
+                  <p className="text-sm text-yellow-700">Esto puede tomar unos segundos la primera vez</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {accountError && (
+          <div className="mb-6">
+            <Card className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <div>
+                  <p className="font-semibold text-red-800">Error de cuenta</p>
+                  <p className="text-sm text-red-700">{accountError}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200">
@@ -118,7 +148,10 @@ const Index = () => {
               <Wallet className="w-8 h-8 text-green-600" />
               <div>
                 <p className="text-sm text-gray-600 font-medium">Saldo Total</p>
-                <p className="text-2xl font-bold text-green-700">${(totalBalance + totalPortfolioValue).toFixed(2)}</p>
+                <p className="text-2xl font-bold text-green-700">
+                  ${(totalBalance + totalPortfolioValue).toFixed(2)}
+                </p>
+                {accountLoading && <p className="text-xs text-gray-500">Cargando...</p>}
               </div>
             </div>
           </Card>
@@ -138,7 +171,14 @@ const Index = () => {
               <DollarSign className="w-8 h-8 text-purple-600" />
               <div>
                 <p className="text-sm text-gray-600 font-medium">Disponible</p>
-                <p className="text-2xl font-bold text-purple-700">${totalBalance.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-purple-700">
+                  ${totalBalance.toFixed(2)}
+                </p>
+                {account && (
+                  <p className="text-xs text-gray-500">
+                    {account.wld_balance.toFixed(2)} WLD + {account.usdc_balance.toFixed(2)} USDC
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -158,16 +198,24 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="market" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayTokens.map((token) => (
-                <TokenCard
-                  key={token.id}
-                  token={token}
-                  onBuy={handleBuyToken}
-                  onSell={handleSellToken}
-                />
-              ))}
-            </div>
+            {displayTokens.length === 0 ? (
+              <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200">
+                <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-lg text-gray-600 mb-4">🔍 No hay tokens disponibles</p>
+                <p className="text-gray-500">Los tokens del mercado se están cargando...</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayTokens.map((token) => (
+                  <TokenCard
+                    key={token.id}
+                    token={token}
+                    onBuy={handleBuyToken}
+                    onSell={handleSellToken}
+                  />
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="portfolio" className="space-y-6">
