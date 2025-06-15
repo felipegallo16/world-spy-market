@@ -67,7 +67,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
       const paymentAmount = calculatePaymentAmount()
 
       if (type === 'buy') {
-        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDCE
+        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDC
         
         const payload: PayCommandInput = {
           reference: `trade-${Date.now()}-${nullifierHash?.slice(0, 8)}`, // Include user verification in reference
