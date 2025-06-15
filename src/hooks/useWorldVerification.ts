@@ -47,7 +47,7 @@ export const useWorldVerification = () => {
     try {
       const { finalPayload } = await MiniKit.commandsAsync.verify({
         action: 'trust-save',
-        verification_level: VerificationLevel.Orb
+        verification_level: VerificationLevel.Device
       })
 
       if (finalPayload.status === 'success') {
