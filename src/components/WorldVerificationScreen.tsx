@@ -2,9 +2,27 @@
 import { Button } from '@/components/ui/button'
 import { useWorldVerification } from '@/hooks/useWorldVerification'
 import { Shield, Sparkles, Users, Lock, CheckCircle, AlertCircle } from 'lucide-react'
+import { useEffect } from 'react'
 
 export const WorldVerificationScreen = () => {
-  const { startVerification, isVerifying, error } = useWorldVerification()
+  const { startVerification, isVerifying, error, isVerified } = useWorldVerification()
+
+  // Debug logs para diagnosticar el problema
+  useEffect(() => {
+    console.log('WorldVerificationScreen - Estado actual:', {
+      isVerified,
+      isVerifying,
+      error,
+      localStorage: localStorage.getItem('world_id_nullifier')
+    })
+  }, [isVerified, isVerifying, error])
+
+  // Si el usuario ya está verificado, este componente no debería renderizarse
+  // pero agregamos este log para debugging
+  if (isVerified) {
+    console.log('Usuario verificado, pero WorldVerificationScreen aún se está renderizando')
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
