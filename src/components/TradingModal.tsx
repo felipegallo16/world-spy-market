@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -7,7 +6,8 @@ import { Label } from '@/components/ui/label'
 import { IndexToken } from '@/types/tokens'
 import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from '@worldcoin/minikit-js'
 import { useToast } from '@/hooks/use-toast'
-import { Sparkles, TrendingUp, Heart, Gift, Info, DollarSign, Coins } from 'lucide-react'
+import { useWorldVerification } from '@/hooks/useWorldVerification'
+import { Sparkles, TrendingUp, Heart, Gift, Info, DollarSign, Coins, Shield } from 'lucide-react'
 
 interface TradingModalProps {
   isOpen: boolean
@@ -23,6 +23,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
   const [paymentToken, setPaymentToken] = useState<PaymentToken>('USDC')
   const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
+  const { isVerified, nullifierHash } = useWorldVerification()
 
   if (!token) return null
 
@@ -41,6 +42,16 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
   }
 
   const handleTrade = async () => {
+    // Extra security check
+    if (!isVerified) {
+      toast({
+        title: "Verificación requerida 🔒",
+        description: "Necesitas verificarte con World ID para realizar transacciones",
+        variant: "destructive"
+      })
+      return
+    }
+
     if (!amount || parseFloat(amount) <= 0) {
       toast({
         title: "¡Oops! 😅",
@@ -56,10 +67,10 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
       const paymentAmount = calculatePaymentAmount()
 
       if (type === 'buy') {
-        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDC
+        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDCE
         
         const payload: PayCommandInput = {
-          reference: `trade-${Date.now()}`,
+          reference: `trade-${Date.now()}-${nullifierHash?.slice(0, 8)}`, // Include user verification in reference
           to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
           tokens: [
             {
@@ -67,7 +78,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
               token_amount: tokenToDecimals(paymentAmount, selectedToken).toString(),
             },
           ],
-          description: `🎉 Comprar ${amount} tokens ${token.symbol} con ${paymentToken}`,
+          description: `🎉 Comprar ${amount} tokens ${token.symbol} con ${paymentToken} (Usuario verificado)`,
         }
 
         if (MiniKit.isInstalled()) {
@@ -123,6 +134,10 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
                 </span>
               </>
             )}
+            <div className="ml-auto flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+              <Shield className="w-3 h-3" />
+              Verificado
+            </div>
           </DialogTitle>
         </DialogHeader>
         
