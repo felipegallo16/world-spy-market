@@ -65,15 +65,11 @@ export interface Transaction {
   index_tokens?: IndexToken
 }
 
-// Display types for components
-export interface DisplayToken {
-  id: string
-  name: string
-  symbol: string
+// Enhanced display types for components that include calculated fields
+export interface DisplayToken extends IndexToken {
   currentPrice: number
   change24h: number
   changePercent24h: number
   marketCap: number
-  description: string
   indexType: string
 }

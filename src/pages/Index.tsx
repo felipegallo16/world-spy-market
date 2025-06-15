@@ -1,13 +1,17 @@
 
 import { useState } from 'react'
-import { TokenCard } from '@/components/TokenCard'
-import { TradingModal } from '@/components/TradingModal'
-import { DisplayToken } from '@/types/tokens'
-import { Button } from '@/components/ui/button'
-import { Sparkles, TrendingUp, Heart, BookOpen, DollarSign, Globe, RefreshCw } from 'lucide-react'
 import { useTokens } from '@/hooks/useTokens'
 import { useUserAccount } from '@/hooks/useUserAccount'
 import { usePortfolio } from '@/hooks/usePortfolio'
+import { useTransactions } from '@/hooks/useTransactions'
+import { TokenCard } from '@/components/TokenCard'
+import { TradingModal } from '@/components/TradingModal'
+import { DisplayToken } from '@/types/tokens'
+import { Card } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Badge } from '@/components/ui/badge'
+import { Wallet, TrendingUp, DollarSign, Activity, RefreshCw, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
 
 const Index = () => {
@@ -15,26 +19,35 @@ const Index = () => {
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy')
   const [isModalOpen, setIsModalOpen] = useState(false)
   
-  const { tokens, isLoading: tokensLoading, updatePrices } = useTokens()
+  const { tokens, isLoading: tokensLoading, refetch: refetchTokens, updatePrices } = useTokens()
   const { account, isLoading: accountLoading } = useUserAccount()
   const { portfolio, isLoading: portfolioLoading } = usePortfolio()
+  const { transactions, isLoading: transactionsLoading } = useTransactions()
   const { toast } = useToast()
 
-  const handleBuy = (token: DisplayToken) => {
+  // Transform tokens to DisplayToken format
+  const displayTokens: DisplayToken[] = tokens.map(token => {
+    const latestPrice = token.token_prices?.[0]
+    return {
+      ...token,
+      currentPrice: latestPrice?.price_usd || 0,
+      change24h: latestPrice?.change_24h || 0,
+      changePercent24h: latestPrice?.change_percent_24h || 0,
+      marketCap: latestPrice?.market_cap || 0,
+      indexType: token.index_type
+    }
+  })
+
+  const handleBuyToken = (token: DisplayToken) => {
     setSelectedToken(token)
     setTradeType('buy')
     setIsModalOpen(true)
   }
 
-  const handleSell = (token: DisplayToken) => {
+  const handleSellToken = (token: DisplayToken) => {
     setSelectedToken(token)
     setTradeType('sell')
     setIsModalOpen(true)
-  }
-
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setSelectedToken(null)
   }
 
   const handleUpdatePrices = async () => {
@@ -42,190 +55,233 @@ const Index = () => {
       await updatePrices()
       toast({
         title: "¡Precios actualizados! 📈",
-        description: "Los precios se han actualizado con datos del mercado real",
+        description: "Los precios de los tokens han sido actualizados con éxito",
       })
     } catch (error) {
       toast({
-        title: "Error al actualizar precios",
-        description: "No se pudieron actualizar los precios en este momento",
+        title: "Error actualizando precios 😔",
+        description: "No pudimos actualizar los precios. Inténtalo de nuevo.",
         variant: "destructive"
       })
     }
   }
 
-  // Calculate portfolio totals
-  const portfolioValue = portfolio.reduce((total, position) => {
-    const currentPrice = position.token_prices?.[0]?.price_usd || 0
-    return total + (position.quantity * currentPrice)
+  const totalPortfolioValue = portfolio.reduce((total, item) => {
+    const token = displayTokens.find(t => t.id === item.token_id)
+    return total + (item.quantity * (token?.currentPrice || 0))
   }, 0)
 
-  const portfolioPnL = portfolio.reduce((total, position) => {
-    const currentPrice = position.token_prices?.[0]?.price_usd || 0
-    const currentValue = position.quantity * currentPrice
-    return total + (currentValue - position.total_invested)
-  }, 0)
+  const totalBalance = (account?.wld_balance || 0) * 2.45 + (account?.usdc_balance || 0) // Assuming 1 WLD = $2.45
 
-  if (tokensLoading || accountLoading || portfolioLoading) {
+  if (tokensLoading || accountLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <Sparkles className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-          <p className="text-lg font-semibold text-gray-700">Cargando tu plataforma de inversión...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Sparkles className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
+          <p className="text-xl font-semibold text-gray-700">Cargando TrustSave...</p>
         </div>
       </div>
     )
   }
 
-  // Convert IndexToken to DisplayToken for components
-  const displayTokens: DisplayToken[] = tokens.map(token => ({
-    id: token.id,
-    name: token.name,
-    symbol: token.symbol,
-    currentPrice: token.token_prices?.[0]?.price_usd || 0,
-    change24h: token.token_prices?.[0]?.change_24h || 0,
-    changePercent24h: token.token_prices?.[0]?.change_percent_24h || 0,
-    marketCap: token.token_prices?.[0]?.market_cap || 0,
-    description: token.description || '',
-    indexType: token.index_type
-  }))
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header con gradiente cálido */}
-      <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 text-white p-6 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="bg-white/20 p-2 rounded-full">
-                <Sparkles className="w-8 h-8 text-yellow-300 animate-pulse" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold">✨ Ahorro Inteligente</h1>
-                <p className="text-sm opacity-90 font-medium">Tu primer paso hacia la libertad financiera</p>
-              </div>
-            </div>
-            <Button
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-6">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <Sparkles className="w-8 h-8 text-yellow-500 animate-pulse" />
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              TrustSave
+            </h1>
+            <Sparkles className="w-8 h-8 text-yellow-500 animate-pulse" />
+          </div>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            🌟 Invierte en índices del mundo con verificación World ID 🌟
+          </p>
+          <div className="flex justify-center mt-4">
+            <Button 
               onClick={handleUpdatePrices}
               variant="outline"
-              size="sm"
-              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+              className="flex items-center gap-2 border-2 border-blue-300 hover:bg-blue-50"
             >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Actualizar
+              <RefreshCw className="w-4 h-4" />
+              Actualizar Precios
             </Button>
           </div>
-          
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
-            <div className="flex items-start gap-3">
-              <Heart className="w-6 h-6 text-pink-300 mt-1 animate-pulse" />
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-100 border-2 border-green-200">
+            <div className="flex items-center gap-3">
+              <Wallet className="w-8 h-8 text-green-600" />
               <div>
-                <h3 className="font-semibold text-lg mb-2">¿Por qué empezar a ahorrar hoy? 🚀</h3>
-                <p className="text-sm leading-relaxed opacity-95">
-                  Los Index Tokens te permiten invertir en las mejores empresas del mundo con solo unos pocos dólares. 
-                  ¡Es como tener un pedacito de Apple, Google y Tesla en tu bolsillo! 💎
-                </p>
+                <p className="text-sm text-gray-600 font-medium">Saldo Total</p>
+                <p className="text-2xl font-bold text-green-700">${(totalBalance + totalPortfolioValue).toFixed(2)}</p>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Sección educativa */}
-      <div className="p-4 bg-gradient-to-r from-green-50 to-blue-50 border-b-2 border-green-100">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div className="bg-white/80 backdrop-blur-sm p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all duration-200">
-            <BookOpen className="w-6 h-6 text-blue-600 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-gray-700">Fácil de entender</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all duration-200">
-            <DollarSign className="w-6 h-6 text-green-600 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-gray-700">Desde $3 dólares</p>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm p-3 rounded-lg border border-green-200 transform hover:scale-105 transition-all duration-200">
-            <Globe className="w-6 h-6 text-purple-600 mx-auto mb-2" />
-            <p className="text-xs font-semibold text-gray-700">Diversificación global</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Portfolio Summary con datos reales */}
-      <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border-b-2 border-orange-100">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="text-center bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-yellow-200 transform hover:scale-105 transition-all duration-200">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <p className="text-sm text-gray-600 font-medium">Mi Portafolio</p>
+          </Card>
+          
+          <Card className="p-6 bg-gradient-to-br from-blue-50 to-cyan-100 border-2 border-blue-200">
+            <div className="flex items-center gap-3">
+              <TrendingUp className="w-8 h-8 text-blue-600" />
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Portfolio</p>
+                <p className="text-2xl font-bold text-blue-700">${totalPortfolioValue.toFixed(2)}</p>
+              </div>
             </div>
-            <p className="text-2xl font-bold text-gray-800">${portfolioValue.toFixed(2)}</p>
-            <p className="text-xs text-gray-500">
-              Balance: ${account?.wld_balance?.toFixed(2) || '0.00'} WLD + ${account?.usdc_balance?.toFixed(2) || '0.00'} USDC
-            </p>
-          </div>
-          <div className="text-center bg-white/70 backdrop-blur-sm p-4 rounded-xl border-2 border-green-200 transform hover:scale-105 transition-all duration-200">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-green-600 animate-pulse" />
-              <p className="text-sm text-gray-600 font-medium">Ganancia Total</p>
+          </Card>
+          
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-pink-100 border-2 border-purple-200">
+            <div className="flex items-center gap-3">
+              <DollarSign className="w-8 h-8 text-purple-600" />
+              <div>
+                <p className="text-sm text-gray-600 font-medium">Disponible</p>
+                <p className="text-2xl font-bold text-purple-700">${totalBalance.toFixed(2)}</p>
+              </div>
             </div>
-            <p className={`text-2xl font-bold ${portfolioPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {portfolioPnL >= 0 ? '+' : ''}${portfolioPnL.toFixed(2)}
-            </p>
-            <p className="text-xs text-gray-500">
-              {portfolioPnL >= 0 ? '¡Vas muy bien!' : 'Sigue invirtiendo'}
-            </p>
-          </div>
+          </Card>
         </div>
+
+        <Tabs defaultValue="market" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200">
+            <TabsTrigger value="market" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+              📈 Mercado
+            </TabsTrigger>
+            <TabsTrigger value="portfolio" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+              💼 Mi Portfolio
+            </TabsTrigger>
+            <TabsTrigger value="transactions" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
+              📊 Transacciones
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="market" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {displayTokens.map((token) => (
+                <TokenCard
+                  key={token.id}
+                  token={token}
+                  onBuy={handleBuyToken}
+                  onSell={handleSellToken}
+                />
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="portfolio" className="space-y-6">
+            {portfolioLoading ? (
+              <div className="text-center py-8">
+                <Activity className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
+                <p>Cargando portfolio...</p>
+              </div>
+            ) : portfolio.length === 0 ? (
+              <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200">
+                <p className="text-lg text-gray-600 mb-4">🎯 Tu portfolio está vacío</p>
+                <p className="text-gray-500">¡Comienza invirtiendo en tu primer token!</p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {portfolio.map((item) => {
+                  const token = displayTokens.find(t => t.id === item.token_id)
+                  if (!token) return null
+                  
+                  const currentValue = item.quantity * token.currentPrice
+                  const profitLoss = currentValue - item.total_invested
+                  const profitLossPercent = ((profitLoss / item.total_invested) * 100)
+                  
+                  return (
+                    <Card key={item.id} className="p-6 bg-gradient-to-br from-white to-blue-50 border-2 border-blue-100">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-bold text-lg text-gray-800">{token.symbol}</h3>
+                          <Badge variant={profitLoss >= 0 ? "default" : "destructive"}>
+                            {profitLoss >= 0 ? "📈" : "📉"} {profitLoss >= 0 ? "+" : ""}{profitLossPercent.toFixed(2)}%
+                          </Badge>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Cantidad:</span>
+                            <span className="font-semibold">{item.quantity.toFixed(4)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Precio promedio:</span>
+                            <span className="font-semibold">${item.average_buy_price.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Valor actual:</span>
+                            <span className="font-semibold text-blue-600">${currentValue.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between border-t pt-2">
+                            <span className="text-gray-600">Ganancia/Pérdida:</span>
+                            <span className={`font-bold ${profitLoss >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              ${profitLoss.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="transactions" className="space-y-6">
+            {transactionsLoading ? (
+              <div className="text-center py-8">
+                <Activity className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
+                <p>Cargando transacciones...</p>
+              </div>
+            ) : transactions.length === 0 ? (
+              <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200">
+                <p className="text-lg text-gray-600 mb-4">📋 No tienes transacciones aún</p>
+                <p className="text-gray-500">¡Realiza tu primera compra para ver el historial!</p>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {transactions.map((transaction) => (
+                  <Card key={transaction.id} className="p-4 bg-gradient-to-r from-white to-blue-50 border-2 border-blue-100">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.status === 'completed' ? 'bg-green-500' :
+                          transaction.status === 'pending' ? 'bg-yellow-500' :
+                          transaction.status === 'failed' ? 'bg-red-500' : 'bg-gray-500'
+                        }`} />
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            {transaction.transaction_type === 'buy' ? '📈 Compra' : 
+                             transaction.transaction_type === 'sell' ? '📉 Venta' :
+                             transaction.transaction_type === 'deposit' ? '💰 Depósito' : '💸 Retiro'}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            {transaction.index_tokens?.symbol || 'N/A'} • {transaction.payment_currency}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800">${transaction.total_amount.toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(transaction.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
-      {/* Tokens Grid con datos reales */}
-      <div className="p-4 space-y-6 pb-24">
-        <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
-            <Globe className="w-6 h-6 text-blue-600" />
-            Elige tu primera inversión
-          </h2>
-          <p className="text-sm text-gray-600">Cada token representa las mejores empresas de su región 🌍</p>
-        </div>
-        
-        <div className="grid gap-4">
-          {displayTokens.map((token, index) => (
-            <div 
-              key={token.id}
-              className="animate-fade-in"
-              style={{ animationDelay: `${index * 100}ms` }}
-            >
-              <TokenCard
-                token={token}
-                onBuy={handleBuy}
-                onSell={handleSell}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Trading Modal */}
       <TradingModal
         isOpen={isModalOpen}
-        onClose={closeModal}
+        onClose={() => setIsModalOpen(false)}
         token={selectedToken}
         type={tradeType}
       />
-
-      {/* Bottom Navigation con gradiente */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-purple-600 border-t-2 border-blue-300 p-4 backdrop-blur-sm">
-        <div className="grid grid-cols-3 gap-2">
-          <Button variant="outline" size="sm" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-medium">
-            💼 Mi Portafolio
-          </Button>
-          <Button variant="outline" size="sm" className="bg-white/20 border-white/40 text-white hover:bg-white/30 font-medium">
-            📈 Mercados
-          </Button>
-          <Button variant="outline" size="sm" className="bg-white/10 border-white/30 text-white hover:bg-white/20 font-medium">
-            📊 Historial
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

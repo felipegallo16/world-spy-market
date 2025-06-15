@@ -1,13 +1,13 @@
 
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { IndexToken } from '@/types/tokens'
+import { DisplayToken } from '@/types/tokens'
 import { ArrowUp, ArrowDown, TrendingUp, Sparkles } from 'lucide-react'
 
 interface TokenCardProps {
-  token: IndexToken
-  onBuy: (token: IndexToken) => void
-  onSell: (token: IndexToken) => void
+  token: DisplayToken
+  onBuy: (token: DisplayToken) => void
+  onSell: (token: DisplayToken) => void
 }
 
 export const TokenCard = ({ token, onBuy, onSell }: TokenCardProps) => {
