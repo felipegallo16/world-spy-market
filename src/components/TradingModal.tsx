@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { IndexToken } from '@/types/tokens'
 import { MiniKit, tokenToDecimals, Tokens, PayCommandInput } from '@worldcoin/minikit-js'
 import { useToast } from '@/hooks/use-toast'
-import { Sparkles, TrendingUp, Heart, Gift, Info } from 'lucide-react'
+import { Sparkles, TrendingUp, Heart, Gift, Info, DollarSign, Coins } from 'lucide-react'
 
 interface TradingModalProps {
   isOpen: boolean
@@ -16,12 +16,29 @@ interface TradingModalProps {
   type: 'buy' | 'sell'
 }
 
+type PaymentToken = 'USDC' | 'WLD'
+
 export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps) => {
   const [amount, setAmount] = useState('')
+  const [paymentToken, setPaymentToken] = useState<PaymentToken>('USDC')
   const [isProcessing, setIsProcessing] = useState(false)
   const { toast } = useToast()
 
   if (!token) return null
+
+  // Mock exchange rates (in a real app, these would come from an API)
+  const wldToUsdRate = 2.45 // 1 WLD = $2.45 USD
+  const usdcToUsdRate = 1.0  // 1 USDC = $1.00 USD
+
+  const calculatePaymentAmount = () => {
+    if (!amount) return 0
+    const totalValue = parseFloat(amount) * token.currentPrice
+    
+    if (paymentToken === 'WLD') {
+      return totalValue / wldToUsdRate
+    }
+    return totalValue / usdcToUsdRate
+  }
 
   const handleTrade = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -36,20 +53,21 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
     setIsProcessing(true)
 
     try {
-      const totalValue = parseFloat(amount) * token.currentPrice
+      const paymentAmount = calculatePaymentAmount()
 
       if (type === 'buy') {
-        // Initiate payment using MiniKit Pay command
+        const selectedToken = paymentToken === 'WLD' ? Tokens.WLD : Tokens.USDC
+        
         const payload: PayCommandInput = {
           reference: `trade-${Date.now()}`,
           to: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
           tokens: [
             {
-              symbol: Tokens.USDCE,
-              token_amount: tokenToDecimals(totalValue, Tokens.USDCE).toString(),
+              symbol: selectedToken,
+              token_amount: tokenToDecimals(paymentAmount, selectedToken).toString(),
             },
           ],
-          description: `🎉 Comprar ${amount} tokens ${token.symbol} - ¡Tu primera inversión!`,
+          description: `🎉 Comprar ${amount} tokens ${token.symbol} con ${paymentToken}`,
         }
 
         if (MiniKit.isInstalled()) {
@@ -58,7 +76,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
           if (finalPayload.status === 'success') {
             toast({
               title: "¡Felicidades! 🎉",
-              description: `¡Acabas de comprar ${amount} tokens ${token.symbol}! Tu viaje de inversión ha comenzado 🚀`,
+              description: `¡Acabas de comprar ${amount} tokens ${token.symbol} con ${paymentToken}! Tu viaje de inversión ha comenzado 🚀`,
             })
             onClose()
           }
@@ -82,6 +100,7 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
   }
 
   const totalValue = amount ? (parseFloat(amount) * token.currentPrice).toFixed(2) : '0.00'
+  const paymentAmount = calculatePaymentAmount()
   const potentialGrowth = amount ? (parseFloat(amount) * token.currentPrice * 1.08).toFixed(2) : '0.00'
 
   return (
@@ -137,16 +156,71 @@ export const TradingModal = ({ isOpen, onClose, token, type }: TradingModalProps
               className="mt-2 text-lg font-semibold border-2 border-blue-200 focus:border-blue-400 bg-white/70"
             />
           </div>
+
+          {type === 'buy' && (
+            <div>
+              <Label className="text-base font-semibold text-gray-700 mb-3 block">
+                💳 ¿Con qué token quieres pagar?
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  variant={paymentToken === 'USDC' ? 'default' : 'outline'}
+                  onClick={() => setPaymentToken('USDC')}
+                  className={`flex items-center gap-2 p-4 h-auto ${
+                    paymentToken === 'USDC' 
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                      : 'border-2 border-blue-200 hover:bg-blue-50'
+                  }`}
+                >
+                  <DollarSign className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="font-semibold">USDC</div>
+                    <div className="text-xs opacity-80">Moneda estable</div>
+                  </div>
+                </Button>
+                <Button
+                  variant={paymentToken === 'WLD' ? 'default' : 'outline'}
+                  onClick={() => setPaymentToken('WLD')}
+                  className={`flex items-center gap-2 p-4 h-auto ${
+                    paymentToken === 'WLD' 
+                      ? 'bg-gradient-to-r from-purple-500 to-purple-600 text-white' 
+                      : 'border-2 border-purple-200 hover:bg-purple-50'
+                  }`}
+                >
+                  <Coins className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="font-semibold">WLD</div>
+                    <div className="text-xs opacity-80">Token de World</div>
+                  </div>
+                </Button>
+              </div>
+              <div className="mt-2 p-3 bg-gray-50 rounded-lg border">
+                <p className="text-xs text-gray-600">
+                  {paymentToken === 'USDC' 
+                    ? 'USDC es una moneda estable equivalente al dólar. Ideal para mantener el valor.' 
+                    : 'WLD es el token nativo de World. Úsalo para aprovechar tu ecosistema Worldcoin.'}
+                </p>
+              </div>
+            </div>
+          )}
           
           <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border-2 border-blue-200 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">💵 Precio por token:</span>
               <span className="font-semibold text-gray-800">${token.currentPrice.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-base font-semibold border-t pt-2">
-              <span className="text-gray-700">🧮 Total a pagar:</span>
-              <span className="text-lg text-blue-600">${totalValue}</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">🧮 Valor total:</span>
+              <span className="font-semibold text-gray-800">${totalValue}</span>
             </div>
+            {type === 'buy' && amount && (
+              <div className="flex justify-between text-base font-semibold border-t pt-2">
+                <span className="text-gray-700">💳 Pagarás:</span>
+                <span className="text-lg text-blue-600">
+                  {paymentAmount.toFixed(paymentToken === 'WLD' ? 3 : 2)} {paymentToken}
+                </span>
+              </div>
+            )}
             {type === 'buy' && amount && (
               <div className="flex justify-between text-sm bg-green-50 p-2 rounded-lg border border-green-200">
                 <span className="text-gray-600 flex items-center gap-1">
