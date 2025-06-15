@@ -13,17 +13,19 @@ declare global {
   interface Window {
     toggleWorldIdBypass: () => void;
     checkWorldIdStatus: () => void;
+    forceDevMode: () => void;
   }
 }
 
 export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   const { isVerified } = useWorldVerification()
   
-  // Detección mejorada del entorno de desarrollo
+  // Detección mejorada del entorno de desarrollo incluyendo Lovable
   const isDevelopment = (() => {
     const hostname = window.location.hostname
     const port = window.location.port
     const protocol = window.location.protocol
+    const fullUrl = window.location.href
     
     // Hostnames de desarrollo
     const devHostnames = ['localhost', '127.0.0.1', '0.0.0.0']
@@ -31,25 +33,50 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
     // Puertos comunes de desarrollo
     const devPorts = ['3000', '5173', '8080', '4000', '8000', '5000', '3001']
     
+    // Dominios de Lovable (entornos de preview)
+    const lovableDomains = [
+      '.lovableproject.com',
+      '.lovable.app',
+      'lovable.dev',
+      'preview-',
+      'staging-'
+    ]
+    
+    // Verificar si es un dominio de Lovable
+    const isLovableDomain = lovableDomains.some(domain => 
+      hostname.includes(domain) || fullUrl.includes(domain)
+    )
+    
     // Es desarrollo si:
-    // 1. Hostname es de desarrollo
+    // 1. Hostname es de desarrollo tradicional
     // 2. O si usa un puerto de desarrollo
     // 3. O si el protocolo no es https (excepto para producción real)
+    // 4. O si es un dominio de Lovable
+    // 5. O si está forzado por localStorage
     const isDevHostname = devHostnames.includes(hostname)
     const isDevPort = devPorts.includes(port)
     const isDevProtocol = protocol === 'http:' && !hostname.includes('.com')
+    const isForcedDev = localStorage.getItem('force_dev_mode') === 'true'
     
-    const isDev = isDevHostname || isDevPort || isDevProtocol
+    const isDev = isDevHostname || isDevPort || isDevProtocol || isLovableDomain || isForcedDev
     
-    console.log('🔍 Detección de entorno de desarrollo:', {
+    console.log('🔍 DETECCIÓN DE ENTORNO DE DESARROLLO (EXPANDIDA):', {
       hostname,
       port,
       protocol,
+      fullUrl,
       isDevHostname,
       isDevPort,
       isDevProtocol,
-      finalResult: isDev
+      isLovableDomain,
+      isForcedDev,
+      finalResult: isDev,
+      detectedAs: isDev ? 'DEVELOPMENT' : 'PRODUCTION'
     })
+    
+    if (isLovableDomain) {
+      console.log('🎯 DOMINIO DE LOVABLE DETECTADO - Activando modo desarrollo automáticamente')
+    }
     
     return isDev
   })()
@@ -58,39 +85,63 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   const [devBypassMode, setDevBypassMode] = useState(() => {
     if (!isDevelopment) return false
     const stored = localStorage.getItem('dev_bypass_world_id') === 'true'
-    console.log('🔧 Estado inicial del bypass:', stored)
+    console.log('🔧 Estado inicial del bypass:', {
+      isDevelopment,
+      storedBypass: stored,
+      localStorage: localStorage.getItem('dev_bypass_world_id')
+    })
     return stored
   })
 
-  // Configurar funciones globales para debugging
+  // Configurar funciones globales para debugging mejoradas
   useEffect(() => {
-    if (isDevelopment) {
+    if (typeof window !== 'undefined') {
       window.toggleWorldIdBypass = () => {
         const newState = !devBypassMode
         setDevBypassMode(newState)
         localStorage.setItem('dev_bypass_world_id', newState.toString())
         console.log(`🔄 Bypass toggled via console: ${newState}`)
+        console.log('ℹ️ Refresca la página si no ves los cambios inmediatamente')
       }
       
       window.checkWorldIdStatus = () => {
-        console.log('🔍 Estado actual de World ID:', {
+        console.log('🔍 ESTADO COMPLETO DE WORLD ID:', {
+          currentUrl: window.location.href,
+          hostname: window.location.hostname,
           isDevelopment,
           devBypassMode,
           isVerified,
           shouldShowApp: isVerified || (isDevelopment && devBypassMode),
-          localStorage: localStorage.getItem('dev_bypass_world_id')
+          localStorage: {
+            dev_bypass_world_id: localStorage.getItem('dev_bypass_world_id'),
+            world_id_nullifier: localStorage.getItem('world_id_nullifier'),
+            force_dev_mode: localStorage.getItem('force_dev_mode')
+          }
         })
       }
       
-      console.log('🎛️ Comandos de desarrollo disponibles:')
+      window.forceDevMode = () => {
+        localStorage.setItem('force_dev_mode', 'true')
+        localStorage.setItem('dev_bypass_world_id', 'true')
+        console.log('🚀 MODO DESARROLLO FORZADO - Refresca la página')
+        window.location.reload()
+      }
+      
+      console.log('🎛️ COMANDOS DE DESARROLLO DISPONIBLES:')
       console.log('   - window.toggleWorldIdBypass() - Alternar bypass')
-      console.log('   - window.checkWorldIdStatus() - Ver estado actual')
+      console.log('   - window.checkWorldIdStatus() - Ver estado completo')
+      console.log('   - window.forceDevMode() - Forzar modo desarrollo y bypass')
+      console.log('')
+      console.log('🔧 BYPASS MANUAL DE EMERGENCIA:')
+      console.log('   localStorage.setItem("dev_bypass_world_id", "true")')
+      console.log('   window.location.reload()')
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete window.toggleWorldIdBypass
         delete window.checkWorldIdStatus
+        delete window.forceDevMode
       }
     }
   }, [devBypassMode, isVerified, isDevelopment])
@@ -102,11 +153,12 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   useEffect(() => {
-    console.log('📊 Estado de MiniKitProvider:', {
+    console.log('📊 ESTADO ACTUAL DE MiniKitProvider:', {
       isVerified,
       isDevelopment,
       devBypassMode,
-      shouldShowApp: isVerified || (isDevelopment && devBypassMode)
+      shouldShowApp: isVerified || (isDevelopment && devBypassMode),
+      url: window.location.href
     })
   }, [isVerified, devBypassMode, isDevelopment])
 
@@ -122,10 +174,10 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   const shouldShowApp = isVerified || (isDevelopment && devBypassMode)
 
   if (!shouldShowApp) {
-    console.log('📋 MiniKitProvider - Showing verification screen')
+    console.log('📋 MiniKitProvider - Mostrando pantalla de verificación')
     return (
       <div>
-        {/* Panel de desarrollo mejorado */}
+        {/* Panel de desarrollo mejorado y siempre visible en desarrollo */}
         {isDevelopment && (
           <div className="fixed top-4 right-4 z-50 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 shadow-xl max-w-xs">
             <div className="flex items-center gap-2 mb-3">
@@ -136,14 +188,15 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
             <div className="text-xs text-yellow-700 mb-3 space-y-1">
               <div>Host: {window.location.hostname}</div>
               <div>Puerto: {window.location.port || 'default'}</div>
-              <div>Bypass: {devBypassMode ? 'ACTIVO' : 'INACTIVO'}</div>
+              <div>Bypass: {devBypassMode ? '✅ ACTIVO' : '❌ INACTIVO'}</div>
+              <div>Verificado: {isVerified ? '✅ SÍ' : '❌ NO'}</div>
             </div>
             
             <Button
               onClick={toggleDevBypass}
               variant={devBypassMode ? "destructive" : "default"}
               size="sm"
-              className="w-full text-xs"
+              className="w-full text-xs mb-2"
             >
               {devBypassMode ? (
                 <>
@@ -158,8 +211,9 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
               )}
             </Button>
             
-            <div className="text-xs text-yellow-600 mt-2 text-center">
-              Console: toggleWorldIdBypass()
+            <div className="text-xs text-yellow-600 text-center space-y-1">
+              <div>Console: toggleWorldIdBypass()</div>
+              <div>Emergency: forceDevMode()</div>
             </div>
           </div>
         )}
@@ -169,10 +223,10 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   }
 
   // Show main app only if verified or in dev bypass mode
-  console.log('✅ MiniKitProvider - Showing main app')
+  console.log('✅ MiniKitProvider - Mostrando aplicación principal')
   return (
     <div>
-      {/* Indicador de modo bypass en desarrollo - siempre visible en desarrollo */}
+      {/* Indicador de estado en desarrollo - siempre visible */}
       {isDevelopment && (
         <div className={`fixed top-4 right-4 z-50 rounded-lg p-3 shadow-lg border-2 ${
           devBypassMode 
