@@ -1,4 +1,3 @@
-
 'use client'
 
 import { ReactNode, useEffect, useState } from 'react'
@@ -81,16 +80,18 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
     return isDev
   })()
   
-  // Estado para el modo bypass de desarrollo
+  // En desarrollo, activar bypass automáticamente
   const [devBypassMode, setDevBypassMode] = useState(() => {
     if (!isDevelopment) return false
-    const stored = localStorage.getItem('dev_bypass_world_id') === 'true'
-    console.log('🔧 Estado inicial del bypass:', {
-      isDevelopment,
-      storedBypass: stored,
-      localStorage: localStorage.getItem('dev_bypass_world_id')
-    })
-    return stored
+    
+    // Auto-activar bypass en desarrollo
+    const autoBypass = true
+    if (autoBypass) {
+      localStorage.setItem('dev_bypass_world_id', 'true')
+      console.log('🚀 MODO DESARROLLO: Auto-activando bypass de World ID')
+    }
+    
+    return autoBypass
   })
 
   // Configurar funciones globales para debugging mejoradas
@@ -177,7 +178,7 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
     console.log('📋 MiniKitProvider - Mostrando pantalla de verificación')
     return (
       <div>
-        {/* Panel de desarrollo mejorado y siempre visible en desarrollo */}
+        {/* Panel de desarrollo solo en modo no-bypass */}
         {isDevelopment && (
           <div className="fixed top-4 right-4 z-50 bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 shadow-xl max-w-xs">
             <div className="flex items-center gap-2 mb-3">
@@ -194,26 +195,16 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
             
             <Button
               onClick={toggleDevBypass}
-              variant={devBypassMode ? "destructive" : "default"}
+              variant="default"
               size="sm"
               className="w-full text-xs mb-2"
             >
-              {devBypassMode ? (
-                <>
-                  <EyeOff className="w-3 h-3 mr-1" />
-                  Activar World ID
-                </>
-              ) : (
-                <>
-                  <Eye className="w-3 h-3 mr-1" />
-                  Omitir World ID
-                </>
-              )}
+              <Eye className="w-3 h-3 mr-1" />
+              Saltar World ID
             </Button>
             
-            <div className="text-xs text-yellow-600 text-center space-y-1">
-              <div>Console: toggleWorldIdBypass()</div>
-              <div>Emergency: forceDevMode()</div>
+            <div className="text-xs text-yellow-600 text-center">
+              <div>🚀 Auto-bypass activado en desarrollo</div>
             </div>
           </div>
         )}
@@ -226,21 +217,13 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
   console.log('✅ MiniKitProvider - Mostrando aplicación principal')
   return (
     <div>
-      {/* Indicador de estado en desarrollo - siempre visible */}
+      {/* Indicador de estado en desarrollo - menos prominente */}
       {isDevelopment && (
-        <div className={`fixed top-4 right-4 z-50 rounded-lg p-3 shadow-lg border-2 ${
-          devBypassMode 
-            ? 'bg-green-50 border-green-300' 
-            : 'bg-blue-50 border-blue-300'
-        }`}>
+        <div className="fixed top-4 right-4 z-50 bg-green-50 border-2 border-green-300 rounded-lg p-3 shadow-lg">
           <div className="flex items-center gap-2 mb-2">
-            <div className={`w-2 h-2 rounded-full ${
-              devBypassMode ? 'bg-green-500' : 'bg-blue-500'
-            }`}></div>
-            <span className={`text-xs font-semibold ${
-              devBypassMode ? 'text-green-800' : 'text-blue-800'
-            }`}>
-              {devBypassMode ? 'BYPASS ACTIVO' : 'WORLD ID ACTIVO'}
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <span className="text-xs font-semibold text-green-800">
+              MODO DESARROLLO
             </span>
           </div>
           <Button
@@ -249,17 +232,8 @@ export const MiniKitProvider = ({ children }: { children: ReactNode }) => {
             size="sm"
             className="w-full text-xs"
           >
-            {devBypassMode ? (
-              <>
-                <EyeOff className="w-3 h-3 mr-1" />
-                Activar World ID
-              </>
-            ) : (
-              <>
-                <Eye className="w-3 h-3 mr-1" />
-                Omitir World ID
-              </>
-            )}
+            <EyeOff className="w-3 h-3 mr-1" />
+            Activar World ID
           </Button>
         </div>
       )}
