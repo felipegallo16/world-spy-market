@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { IndexToken } from '@/types/tokens'
@@ -17,60 +16,72 @@ export const useTokens = () => {
       setIsLoading(true)
       setError(null)
       
-      console.log('🔍 Fetching tokens from database...')
+      console.log('🔍 Fetching tokens with prices...')
       
-      // First, let's try a simple query to get tokens
+      // Single query with JOIN to get tokens and their latest prices
       const { data: tokensData, error: tokensError } = await supabase
         .from('index_tokens')
-        .select('*')
+        .select(`
+          *,
+          token_prices (
+            id,
+            price_usd,
+            change_24h,
+            change_percent_24h,
+            market_cap,
+            volume_24h,
+            updated_at
+          )
+        `)
         .eq('is_active', true)
         .order('symbol')
 
       if (tokensError) {
         console.error('❌ Error fetching tokens:', tokensError)
-        throw tokensError
+        throw new Error(`Database error: ${tokensError.message}`)
       }
 
-      console.log('📊 Tokens fetched:', tokensData?.length || 0, tokensData)
+      console.log('📊 Raw tokens data:', tokensData)
 
       if (!tokensData || tokensData.length === 0) {
-        console.log('⚠️ No tokens found in database')
+        console.log('⚠️ No active tokens found in database')
         setTokens([])
         return
       }
 
-      // Now get prices separately for each token
-      const tokensWithPrices = await Promise.all(
-        tokensData.map(async (token) => {
-          const { data: priceData, error: priceError } = await supabase
-            .from('token_prices')
-            .select('*')
-            .eq('token_id', token.id)
-            .order('updated_at', { ascending: false })
-            .limit(1)
+      // Process the data and get the latest price for each token
+      const processedTokens = tokensData.map(token => {
+        const prices = token.token_prices || []
+        // Sort by updated_at to get the latest price
+        const latestPrice = prices.sort((a, b) => 
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+        )[0]
 
-          if (priceError) {
-            console.error(`❌ Error fetching price for token ${token.symbol}:`, priceError)
-            return {
-              ...token,
-              token_prices: []
-            }
-          }
-
-          console.log(`💰 Price data for ${token.symbol}:`, priceData)
-          
-          return {
-            ...token,
-            token_prices: priceData || []
-          }
+        console.log(`💰 Token ${token.symbol}:`, {
+          totalPrices: prices.length,
+          latestPrice: latestPrice ? {
+            price: latestPrice.price_usd,
+            updated: latestPrice.updated_at
+          } : 'No price found'
         })
-      )
 
-      console.log('✅ Final tokens with prices:', tokensWithPrices)
-      setTokens(tokensWithPrices)
+        return {
+          ...token,
+          token_prices: latestPrice ? [latestPrice] : []
+        }
+      })
+
+      console.log('✅ Processed tokens:', processedTokens.length)
+      setTokens(processedTokens)
     } catch (err) {
       console.error('❌ Error in fetchTokens:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch tokens')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch tokens'
+      setError(errorMessage)
+      
+      // Don't leave empty array on error, keep previous data if any
+      if (tokens.length === 0) {
+        setTokens([])
+      }
     } finally {
       setIsLoading(false)
     }

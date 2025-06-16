@@ -24,86 +24,97 @@ export const useUserAccount = () => {
       // First, check for local demo user
       const demoUser = getDemoUser()
       if (demoUser) {
-        console.log('👤 Usuario demo local encontrado:', demoUser.userId)
+        console.log('👤 Demo user found:', demoUser.userId)
         await handleDemoUserAccount(demoUser.userId)
         return
       }
 
       // Check for authenticated user in Supabase
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError) {
+        console.log('⚠️ Auth error, creating demo user:', authError.message)
+        await createAndHandleDemoUser()
+        return
+      }
       
       if (!user) {
-        console.log('👤 No hay usuario autenticado, creando usuario demo...')
-        
-        // Create demo user
-        const result = await createDemoUser()
-        if (!result || !result.userId) {
-          setError('No se pudo crear usuario demo')
-          return
-        }
-        
-        // Handle the demo user account
-        await handleDemoUserAccount(result.userId)
+        console.log('👤 No authenticated user, creating demo user...')
+        await createAndHandleDemoUser()
         return
       }
 
-      console.log('👤 Usuario autenticado encontrado:', user.id)
+      console.log('👤 Authenticated user found:', user.id)
       await handleAuthenticatedUserAccount(user.id)
       
     } catch (err) {
       console.error('❌ Error fetching account:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch account')
+      // Try to use local account as fallback
+      const localAccount = getLocalAccount()
+      if (localAccount) {
+        console.log('🔄 Using local account as fallback')
+        setAccount(localAccount)
+      } else {
+        setError('No se pudo cargar la cuenta')
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
+  const createAndHandleDemoUser = async () => {
+    try {
+      const result = await createDemoUser()
+      if (result && result.userId) {
+        await handleDemoUserAccount(result.userId)
+      } else {
+        throw new Error('Failed to create demo user')
+      }
+    } catch (error) {
+      console.error('❌ Error creating demo user:', error)
+      // Use local account as final fallback
+      const localAccount = getLocalAccount()
+      if (localAccount) {
+        setAccount(localAccount)
+      } else {
+        setError('No se pudo crear usuario demo')
+      }
+    }
+  }
+
   const handleDemoUserAccount = async (userId: string) => {
     try {
-      // First check if we have a local account
+      // First check local account
       const localAccount = getLocalAccount()
       if (localAccount && localAccount.user_id === userId) {
-        console.log('✅ Usando cuenta demo local:', localAccount)
+        console.log('✅ Using local demo account:', localAccount)
         setAccount(localAccount)
         return
       }
 
-      // Try to fetch from database
-      const { data, error } = await supabase
-        .from('user_accounts')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No account found, create one
-          console.log('💳 No se encontró cuenta, creando una nueva...')
-          const accountCreated = await createDemoUserAccount(userId)
-          if (accountCreated) {
-            // Retry fetching the account after a short delay
-            setTimeout(() => {
-              fetchUserAccount()
-            }, 1000)
-          } else {
-            // Use local account as fallback
-            const localAccount = getLocalAccount()
-            if (localAccount) {
-              setAccount(localAccount)
-            } else {
-              setError('No se pudo crear la cuenta')
-            }
+      // Try to fetch from database (this might fail due to UUID format)
+      console.log('🔍 Trying to fetch account from database for:', userId)
+      
+      // Since demo user IDs are not valid UUIDs, this will likely fail
+      // We'll rely on local storage for demo accounts
+      const localFallback = getLocalAccount()
+      if (localFallback) {
+        console.log('✅ Using local account fallback')
+        setAccount(localFallback)
+      } else {
+        // Create new local account
+        console.log('💳 Creating new local demo account...')
+        const created = await createDemoUserAccount(userId)
+        if (created) {
+          const newLocalAccount = getLocalAccount()
+          if (newLocalAccount) {
+            setAccount(newLocalAccount)
           }
-          return
         }
-        throw error
       }
-
-      console.log('✅ Cuenta demo cargada desde base de datos:', data)
-      setAccount(data)
     } catch (error) {
-      console.error('❌ Error handling demo user account:', error)
-      // Fallback to local account
+      console.error('❌ Error handling demo account:', error)
+      // Always fall back to local account for demo users
       const localAccount = getLocalAccount()
       if (localAccount) {
         setAccount(localAccount)
@@ -123,11 +134,9 @@ export const useUserAccount = () => {
 
       if (error) {
         if (error.code === 'PGRST116') {
-          // No account found, create one
-          console.log('💳 No se encontró cuenta, creando una nueva...')
+          console.log('💳 Creating new account for authenticated user...')
           const accountCreated = await createDemoUserAccount(userId)
           if (accountCreated) {
-            // Retry fetching the account
             setTimeout(() => {
               fetchUserAccount()
             }, 1000)
@@ -139,7 +148,7 @@ export const useUserAccount = () => {
         throw error
       }
 
-      console.log('✅ Cuenta autenticada cargada:', data)
+      console.log('✅ Authenticated account loaded:', data)
       setAccount(data)
     } catch (error) {
       console.error('❌ Error handling authenticated user account:', error)

@@ -18,20 +18,11 @@ const Index = () => {
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy')
   const [isModalOpen, setIsModalOpen] = useState(false)
   
-  const { tokens, isLoading: tokensLoading, refetch: refetchTokens, updatePrices } = useTokens()
+  const { tokens, isLoading: tokensLoading, error: tokensError, refetch: refetchTokens, updatePrices } = useTokens()
   const { account, isLoading: accountLoading, error: accountError } = useUserAccount()
   const { portfolio, isLoading: portfolioLoading } = usePortfolio()
   const { transactions, isLoading: transactionsLoading } = useTransactions()
   const { toast } = useToast()
-
-  // Debug logs
-  console.log('🏠 Index component state:', {
-    tokensLoading,
-    tokensCount: tokens.length,
-    accountLoading,
-    account: account ? 'loaded' : 'null',
-    accountError
-  })
 
   // Transform tokens to DisplayToken format with better error handling
   const displayTokens: DisplayToken[] = tokens.map(token => {
@@ -44,12 +35,6 @@ const Index = () => {
       marketCap: latestPrice?.market_cap || 0,
       indexType: token.index_type
     }
-    
-    console.log(`🪙 Token ${token.symbol} processed:`, {
-      hasPrice: !!latestPrice,
-      currentPrice: displayToken.currentPrice,
-      priceData: latestPrice
-    })
     
     return displayToken
   })
@@ -87,7 +72,7 @@ const Index = () => {
     return total + (item.quantity * (token?.currentPrice || 0))
   }, 0)
 
-  const totalBalance = (account?.wld_balance || 0) * 2.45 + (account?.usdc_balance || 0) // Assuming 1 WLD = $2.45
+  const totalBalance = (account?.wld_balance || 0) * 2.45 + (account?.usdc_balance || 0)
 
   // Show loading only for tokens, not for account
   if (tokensLoading) {
@@ -129,18 +114,47 @@ const Index = () => {
           </div>
         </div>
 
-        {/* Debug Information */}
+        {/* Enhanced Debug Information */}
         <div className="mb-6">
           <Card className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-gray-200">
             <div className="text-sm space-y-1">
               <p><strong>Debug Info:</strong></p>
               <p>• Tokens cargados: {tokens.length}</p>
               <p>• Tokens con precios: {displayTokens.filter(t => t.currentPrice > 0).length}</p>
-              <p>• Estado cuenta: {accountLoading ? 'Cargando...' : account ? 'Cargada' : 'Error'}</p>
-              {accountError && <p className="text-red-600">• Error: {accountError}</p>}
+              <p>• Estado tokens: {tokensLoading ? 'Cargando...' : tokensError ? `Error: ${tokensError}` : 'OK'}</p>
+              <p>• Estado cuenta: {accountLoading ? 'Cargando...' : account ? 'Cargada' : accountError ? `Error: ${accountError}` : 'Sin cuenta'}</p>
+              {tokensError && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                  <p className="text-red-600 font-semibold">Error de tokens:</p>
+                  <p className="text-red-700 text-xs">{tokensError}</p>
+                </div>
+              )}
             </div>
           </Card>
         </div>
+
+        {/* Tokens Error Alert */}
+        {tokensError && (
+          <div className="mb-6">
+            <Card className="p-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+                <div>
+                  <p className="font-semibold text-red-800">Error cargando tokens</p>
+                  <p className="text-sm text-red-700">{tokensError}</p>
+                  <Button 
+                    onClick={() => refetchTokens()} 
+                    variant="outline" 
+                    size="sm"
+                    className="mt-2 border-red-300 text-red-700 hover:bg-red-50"
+                  >
+                    🔄 Reintentar
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Account Status Alert */}
         {accountLoading && (
@@ -232,7 +246,9 @@ const Index = () => {
               <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-lg text-gray-600 mb-4">🔍 No hay tokens disponibles</p>
-                <p className="text-gray-500">Verifica que haya datos en la base de datos</p>
+                <p className="text-gray-500">
+                  {tokensError ? 'Error al cargar tokens de la base de datos' : 'Verifica que haya datos en la base de datos'}
+                </p>
                 <Button onClick={() => refetchTokens()} className="mt-4">
                   🔄 Recargar tokens
                 </Button>
@@ -251,6 +267,7 @@ const Index = () => {
             )}
           </TabsContent>
 
+          
           <TabsContent value="portfolio" className="space-y-6">
             {portfolioLoading ? (
               <div className="text-center py-8">
