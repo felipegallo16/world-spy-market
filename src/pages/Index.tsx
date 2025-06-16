@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { useTokens } from '@/hooks/useTokens'
 import { useUserAccount } from '@/hooks/useUserAccount'
@@ -25,10 +24,19 @@ const Index = () => {
   const { transactions, isLoading: transactionsLoading } = useTransactions()
   const { toast } = useToast()
 
-  // Transform tokens to DisplayToken format
+  // Debug logs
+  console.log('🏠 Index component state:', {
+    tokensLoading,
+    tokensCount: tokens.length,
+    accountLoading,
+    account: account ? 'loaded' : 'null',
+    accountError
+  })
+
+  // Transform tokens to DisplayToken format with better error handling
   const displayTokens: DisplayToken[] = tokens.map(token => {
     const latestPrice = token.token_prices?.[0]
-    return {
+    const displayToken = {
       ...token,
       currentPrice: latestPrice?.price_usd || 0,
       change24h: latestPrice?.change_24h || 0,
@@ -36,6 +44,14 @@ const Index = () => {
       marketCap: latestPrice?.market_cap || 0,
       indexType: token.index_type
     }
+    
+    console.log(`🪙 Token ${token.symbol} processed:`, {
+      hasPrice: !!latestPrice,
+      currentPrice: displayToken.currentPrice,
+      priceData: latestPrice
+    })
+    
+    return displayToken
   })
 
   const handleBuyToken = (token: DisplayToken) => {
@@ -80,6 +96,7 @@ const Index = () => {
         <div className="text-center space-y-4">
           <Sparkles className="w-12 h-12 text-blue-600 animate-spin mx-auto" />
           <p className="text-xl font-semibold text-gray-700">Cargando TrustSave...</p>
+          <p className="text-sm text-gray-500">Conectando con la base de datos...</p>
         </div>
       </div>
     )
@@ -110,6 +127,19 @@ const Index = () => {
               Actualizar Precios
             </Button>
           </div>
+        </div>
+
+        {/* Debug Information */}
+        <div className="mb-6">
+          <Card className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 border-2 border-gray-200">
+            <div className="text-sm space-y-1">
+              <p><strong>Debug Info:</strong></p>
+              <p>• Tokens cargados: {tokens.length}</p>
+              <p>• Tokens con precios: {displayTokens.filter(t => t.currentPrice > 0).length}</p>
+              <p>• Estado cuenta: {accountLoading ? 'Cargando...' : account ? 'Cargada' : 'Error'}</p>
+              {accountError && <p className="text-red-600">• Error: {accountError}</p>}
+            </div>
+          </Card>
         </div>
 
         {/* Account Status Alert */}
@@ -187,7 +217,7 @@ const Index = () => {
         <Tabs defaultValue="market" className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-white/80 backdrop-blur-sm border-2 border-blue-200">
             <TabsTrigger value="market" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-              📈 Mercado
+              📈 Mercado ({displayTokens.length})
             </TabsTrigger>
             <TabsTrigger value="portfolio" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
               💼 Mi Portfolio
@@ -202,7 +232,10 @@ const Index = () => {
               <Card className="p-8 text-center bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200">
                 <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-lg text-gray-600 mb-4">🔍 No hay tokens disponibles</p>
-                <p className="text-gray-500">Los tokens del mercado se están cargando...</p>
+                <p className="text-gray-500">Verifica que haya datos en la base de datos</p>
+                <Button onClick={() => refetchTokens()} className="mt-4">
+                  🔄 Recargar tokens
+                </Button>
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
